@@ -1,0 +1,36 @@
+{
+  "success": true,
+  "query": "blacksmith iron workshop metal gate door bed furniture",
+  "count": 4,
+  "ranked": true,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/c86d220cf082.jpg",
+      "caption": "A large, ornate, arched wrought iron structure with intricate scrollwork and floral motifs in a workshop.",
+      "source": "Daily News Hungary",
+      "original_width": "1280px",
+      "original_height": "854px"
+    },
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/7982bd582fb6.jpg",
+      "caption": "A modern bedroom and bathroom interior with a black-framed glass door, featuring a watermark.",
+      "source": "First Impression Ironworks",
+      "original_width": "1080px",
+      "original_height": "1080px"
+    },
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/76abe8ef5a8a.jpg",
+      "caption": "An ornate green metal gate with intricate scrollwork is set in a white wall, flanked by climbing ivy. suitable for background image",
+      "source": "Inessa Stewart's Antiques",
+      "original_width": "1512px",
+      "original_height": "1512px"
+    },
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/89f35de4297c.png",
+      "caption": "A black metal gate with a hummingbird and floral cutout design, set between stone pillars. suitable for background image",
+      "source": "FabriPlas Metal",
+      "original_width": "864px",
+      "original_height": "1184px"
+    }
+  ]
+}

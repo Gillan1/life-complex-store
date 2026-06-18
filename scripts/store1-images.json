@@ -1,0 +1,36 @@
+{
+  "success": true,
+  "query": "electronic store technology shop phones accessories Sudan",
+  "count": 4,
+  "ranked": true,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/da75da9dbd2a.jpg",
+      "caption": "A black matte phone case with a circular cutout for the Apple logo, designed for a triple-camera iPhone model. suitable for background image",
+      "source": "Fjorden",
+      "original_width": "1080px",
+      "original_height": "1080px"
+    },
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/1213049ef92a.jpg",
+      "caption": "Two GlocalMe portable devices, one white and one black, with \"GlocalMe 10 Years of Innovation\" text. suitable for background image",
+      "source": "GlocalMe",
+      "original_width": "1001px",
+      "original_height": "1001px"
+    },
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/7e53a3a0126b.png",
+      "caption": "A black Linkin Park phone case with a white logo is displayed next to its purple packaging. Text: WaveBlock, LINKIN PARK, RADIATION PROTECTION PHONE CASE, vab, iPhone not included.",
+      "source": "Linkin Park Store",
+      "original_width": "1946px",
+      "original_height": "1946px"
+    },
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/fdb8a11aedd7.jpg",
+      "caption": "A red and white phone case features a black Assassin's Creed ninja silhouette and logo. Text: © Ubisoft Entertainment. All Rights Reserved. suitable for background image",
+      "source": "The Official Ubisoft Gear Shop",
+      "original_width": "1000px",
+      "original_height": "1000px"
+    }
+  ]
+}

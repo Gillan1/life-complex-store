@@ -1,0 +1,31 @@
+# Caddyfile لمجمع الحياة - تم إصلاحه
+#
+# ✅ تم إزالة ثغرة SSRF (XTransformPort كانت تقبل أي منفذ)
+# ✅ تم تفعيل HTTPS التلقائي عبر Caddy
+#
+# للاستخدام: caddy run --config Caddyfile
+
+# الموقع الرئيسي - HTTPS تلقائي
+life-complex-store.example.com {
+    root * /var/www/life-complex-store/out
+    file_server
+
+    # Cache للملفات الثابتة
+    header /_next/static/* Cache-Control "public, max-age=31536000, immutable"
+    header /images/* Cache-Control "public, max-age=86400"
+
+    # Security headers
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    }
+
+    # Gzip compression
+    encode gzip zstd
+
+    # SPA fallback (كل الـ routes تخدم index.html)
+    try_files {path} /index.html
+}
