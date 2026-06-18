@@ -129,8 +129,25 @@ export const useSalesStore = create<SalesState>((set, get) => ({
       }
 
       const result = await sbInsertSale(saleInput)
-      const newSale = dbToDailySale({ ...result, items: [] })
+      // ✅ تمرير items الفعلية (من saleInput) بدلاً من []
+      const newSale = dbToDailySale({
+        ...result,
+        items: sale.items.map((i, idx) => ({
+          id: -idx - 1, // ID مؤقت
+          sale_id: result.id,
+          product_id: i.productId ? Number(i.productId) : null,
+          product_name: i.productName,
+          quantity: i.quantity,
+          unit_price: i.unitPrice,
+          total_price: i.totalPrice,
+          created_at: result.created_at
+        }))
+      })
       set((state) => ({ sales: [newSale, ...state.sales] }))
+      // ✅ إعادة تحميل المبيعات من Supabase لضمان التزامن
+      setTimeout(() => {
+        get().fetchSales(true)
+      }, 100)
       return newSale.id
     } catch (e) {
       console.error('addSale error:', e)
