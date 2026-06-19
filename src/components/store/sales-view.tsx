@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { toast } from 'sonner'
 import {
   BarChart3,
   TrendingUp,
@@ -30,18 +31,19 @@ import {
   FileText,
   Camera,
   BarChart,
-  PieChart,
   Award,
   Printer,
+  Loader2,
 } from 'lucide-react'
 
 export function SalesView() {
-  const { sales, deleteSale, fetchSales, isLoading } = useSalesStore()
+  const { sales, deleteSale, fetchSales, isLoading, getReceiptUrl } = useSalesStore()
   const { t, language } = useLanguage()
   const { isAdmin } = useAuthStore()
   const [expandedDate, setExpandedDate] = useState<string | null>(null)
   const [saleDialogOpen, setSaleDialogOpen] = useState(false)
-  const [receiptImage, setReceiptImage] = useState<string | null>(null)
+  // ✅ السماح بـ 'loading' كقيمة وسيطة أثناء إنشاء signed URL
+  const [receiptImage, setReceiptImage] = useState<string | null | 'loading'>(null)
 
   // ✅ تحميل المبيعات عند mount
   useEffect(() => {
@@ -326,10 +328,15 @@ export function SalesView() {
                                         size="icon"
                                         className="h-7 w-7 text-destructive hover:text-destructive"
                                         aria-label={language === 'ar' ? 'حذف البيع' : 'Delete sale'}
-                                        onClick={(e) => {
+                                        onClick={async (e) => {
                                           e.stopPropagation()
                                           if (confirm(language === 'ar' ? 'حذف هذا البيع؟' : 'Delete this sale?')) {
-                                            deleteSale(sale.id)
+                                            const ok = await deleteSale(sale.id)
+                                            if (ok) {
+                                              toast.success(language === 'ar' ? 'تم الحذف' : 'Deleted')
+                                            } else {
+                                              toast.error(language === 'ar' ? 'فشل الحذف' : 'Failed to delete')
+                                            }
                                           }
                                         }}
                                       >
@@ -377,9 +384,12 @@ export function SalesView() {
                                   {sale.bankReceipt && (
                                     <div className="mt-2">
                                       <button
-                                        onClick={(e) => {
+                                        onClick={async (e) => {
                                           e.stopPropagation()
-                                          setReceiptImage(sale.bankReceipt || null)
+                                          // ✅ إنشاء signed URL عند الحاجة فقط
+                                          setReceiptImage('loading')
+                                          const url = await getReceiptUrl(sale.bankReceipt!)
+                                          setReceiptImage(url)
                                         }}
                                         className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400 hover:underline"
                                       >
@@ -578,8 +588,15 @@ export function SalesView() {
               {t('bankReceipt')}
             </DialogTitle>
           </DialogHeader>
-          {receiptImage && (
+          {receiptImage === 'loading' && (
+            <div className="flex items-center justify-center py-12 text-muted-foreground">
+              <Loader2 className="h-6 w-6 animate-spin me-2" />
+              {language === 'ar' ? 'جاري التحميل...' : 'Loading...'}
+            </div>
+          )}
+          {receiptImage && receiptImage !== 'loading' && (
             <div className="rounded-md overflow-hidden border">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={receiptImage}
                 alt={t('bankReceipt')}

@@ -41,11 +41,9 @@
 
 ### 3) حساب المسؤول
 
-استخدم نفس حساب Supabase Auth الموجود:
-- **Email**: ghanim.workshop@protonmail.com
-- **Password**: Workshop@Obada2026!Strong
-
-> ⚠️ غيّر كلمة المرور من Supabase Dashboard → Authentication → Users بعد أول تسجيل دخول.
+استخدم حساب Supabase Auth الإداري المُعَدّ في Dashboard:
+- من Supabase Dashboard → Authentication → Users
+- غيّر كلمة المرور بعد أول تسجيل دخول
 
 ### 4) التطوير محلياً
 
@@ -70,7 +68,7 @@ git init
 git add .
 git commit -m "v2.0 - Supabase migration"
 git remote add origin https://github.com/Gillan1/life-complex-store.git
-git push -u origin main --force
+git push -u origin main
 ```
 
 ثم في GitHub: **Settings → Pages → Source: GitHub Actions**
@@ -81,7 +79,7 @@ git push -u origin main --force
 |---|---|
 | مصادقة عبر Supabase Auth (لا كلمات مرور في الكود) | ✅ |
 | Row Level Security على كل الجداول | ✅ |
-| جلسة httpOnly (لا token في localStorage) | ✅ |
+| Token في localStorage مع RLS policies (حماية إضافية) | ✅ |
 | صور المنتجات في Storage (لا base64 في state) | ✅ |
 | إيصالات البنك في bucket خاص (signed URLs) | ✅ |
 | لا مفتاح Service Role في الكود | ✅ |

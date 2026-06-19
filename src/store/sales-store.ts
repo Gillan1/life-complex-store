@@ -6,6 +6,7 @@ import {
   insertSale as sbInsertSale,
   deleteSale as sbDeleteSale,
   uploadBankReceipt,
+  getReceiptSignedUrl,
   type DbSale,
   type SaleInput
 } from '@/lib/supabase'
@@ -26,11 +27,12 @@ export interface CopyServiceItem {
 }
 
 export interface DailySale {
-  id: string                      // string للتوافق مع المكونات
+  id: string
   date: string
   items: SaleItem[]
   copyService?: CopyServiceItem
-  bankReceipt?: string           // URL في Supabase Storage (لا مزيد من base64)
+  bankReceipt?: string           // ✅ مسار الملف (يُنشأ signed URL عند العرض)
+  bankReceiptUrl?: string        // ✅ signed URL محسوب عند الحاجة
   totalAmount: number
   createdAt: string
 }
@@ -44,6 +46,7 @@ interface SalesState {
   addSale: (sale: Omit<DailySale, 'id' | 'createdAt'>) => Promise<string | null>
   deleteSale: (id: string) => Promise<boolean>
   uploadReceipt: (file: File) => Promise<string | null>
+  getReceiptUrl: (path: string) => Promise<string | null>
 }
 
 // تحويل من DbSale إلى DailySale (للعرض)
@@ -58,10 +61,12 @@ function dbToDailySale(s: DbSale): DailySale {
 
   let copyService: CopyServiceItem | undefined
   if (s.copy_service_type && s.copy_service_pages && s.copy_service_price) {
+    // ✅ Guard ضد division by zero
+    const pages = s.copy_service_pages > 0 ? s.copy_service_pages : 1
     copyService = {
       quantity: s.copy_service_pages,
       type: s.copy_service_type as 'colored' | 'normal',
-      unitPrice: s.copy_service_price / s.copy_service_pages,
+      unitPrice: Math.round(s.copy_service_price / pages),
       totalPrice: s.copy_service_price
     }
   }
@@ -71,7 +76,8 @@ function dbToDailySale(s: DbSale): DailySale {
     date: s.sale_date,
     items,
     copyService,
-    bankReceipt: s.bank_receipt_url || undefined,
+    // ✅ خزّن المسار فقط (URL سيُنشأ عند الحاجة)
+    bankReceipt: s.bank_receipt_path || s.bank_receipt_url || undefined,
     totalAmount: s.total_amount,
     createdAt: s.created_at
   }
@@ -118,7 +124,7 @@ export const useSalesStore = create<SalesState>((set, get) => ({
         copy_service_type: sale.copyService?.type || null,
         copy_service_pages: sale.copyService?.quantity || null,
         copy_service_price: sale.copyService?.totalPrice || null,
-        bank_receipt_url: sale.bankReceipt || null,
+        bank_receipt_path: sale.bankReceipt || null, // ✅ المسار فقط
         items: sale.items.map(i => ({
           product_id: i.productId ? Number(i.productId) : null,
           product_name: i.productName,
@@ -171,6 +177,16 @@ export const useSalesStore = create<SalesState>((set, get) => ({
       return await uploadBankReceipt(file)
     } catch (e) {
       console.error('uploadReceipt error:', e)
+      return null
+    }
+  },
+
+  // ✅ دالة جديدة: إنشاء signed URL عند الحاجة (للعرض)
+  getReceiptUrl: async (path: string) => {
+    try {
+      return await getReceiptSignedUrl(path)
+    } catch (e) {
+      console.error('getReceiptUrl error:', e)
       return null
     }
   }

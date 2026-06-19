@@ -17,8 +17,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "مجمع الحياة - Life Complex",
   description: "مجمع الحياة - متجر إلكتروني شامل للإلكترونيات والأجهزة الذكية",
+  // ✅ إصلاح: Next.js يطبّق basePath تلقائياً - لا حاجة لإضافته يدوياً
   icons: {
-    icon: "/life-complex-store/favicon.png",
+    icon: "/favicon.png",
   },
 };
 

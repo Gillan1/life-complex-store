@@ -57,11 +57,13 @@ export interface DbSale {
   copy_service_type: string | null
   copy_service_pages: number | null
   copy_service_price: number | null
-  bank_receipt_url: string | null
+  bank_receipt_path: string | null       // ✅ مسار الملف فقط (لا URL موقّع)
   notes: string | null
   created_at: string
   created_by: string | null
   items?: DbSaleItem[]
+  // ✅ حقل محسوب عند العرض فقط (لا يُخزن في DB)
+  bank_receipt_url?: string | null
 }
 
 // ============ دوال المنتجات ============
@@ -134,6 +136,7 @@ export async function uploadProductImage(file: File): Promise<string> {
   return data.publicUrl
 }
 
+// ✅ إصلاح: يخزن المسار فقط بدلاً من signed URL (الـ URL ينتهي بعد 7 أيام)
 export async function uploadBankReceipt(file: File): Promise<string> {
   const supabase = getSupabase()
   const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
@@ -148,38 +151,54 @@ export async function uploadBankReceipt(file: File): Promise<string> {
     })
   if (uploadError) throw uploadError
 
-  // لـ private bucket نحتاج URL موقّع
-  const { data, error: signedError } = await supabase.storage
+  // ✅ نعيد المسار فقط - الـ URL سيُنشأ عند العرض
+  return fileName
+}
+
+// ✅ دالة جديدة: إنشاء signed URL عند الحاجة (للعرض)
+export async function getReceiptSignedUrl(path: string): Promise<string | null> {
+  if (!path) return null
+  // إذا كان URL كامل بالفعل (للتوافق مع البيانات القديمة)
+  if (path.startsWith('http')) return path
+  const supabase = getSupabase()
+  const { data, error } = await supabase.storage
     .from('lc-receipts')
-    .createSignedUrl(fileName, 3600 * 24 * 7) // صالح 7 أيام
-  if (signedError) throw signedError
+    .createSignedUrl(path, 3600) // صالح لساعة واحدة فقط عند العرض
+  if (error) {
+    console.error('getReceiptSignedUrl error:', error)
+    return null
+  }
   return data.signedUrl
 }
 
 // ============ دوال المبيعات ============
+// ✅ إصلاح: استخدم join مدمج بدل استعلامين منفصلين (يحل race condition)
 export async function fetchSales(): Promise<DbSale[]> {
   const supabase = getSupabase()
-  // جلب المبيعات أولاً
-  const { data: sales, error: salesError } = await supabase
+  const { data, error } = await supabase
     .from('lc_sales')
-    .select('*')
+    .select('*, items:lc_sale_items(*)')
     .order('created_at', { ascending: false })
-  if (salesError) throw salesError
-  if (!sales || sales.length === 0) return []
+  if (error) throw error
+  if (!data || data.length === 0) return []
 
-  // جلب عناصر المبيعات
-  const saleIds = sales.map(s => s.id)
-  const { data: items, error: itemsError } = await supabase
-    .from('lc_sale_items')
-    .select('*')
-    .in('sale_id', saleIds)
-  if (itemsError) throw itemsError
-
-  // تجميع
-  return sales.map(sale => ({
-    ...sale,
-    items: (items || []).filter(i => i.sale_id === sale.id)
-  }))
+  // ✅ تحويل أسماء الحقول من snake_case إلى camelCase + items
+  return data.map((sale: Record<string, unknown>) => {
+    const items = (sale.items as DbSaleItem[]) || []
+    return {
+      id: sale.id as number,
+      sale_date: sale.sale_date as string,
+      total_amount: sale.total_amount as number,
+      copy_service_type: sale.copy_service_type as string | null,
+      copy_service_pages: sale.copy_service_pages as number | null,
+      copy_service_price: sale.copy_service_price as number | null,
+      bank_receipt_path: sale.bank_receipt_path as string | null,
+      notes: sale.notes as string | null,
+      created_at: sale.created_at as string,
+      created_by: sale.created_by as string | null,
+      items
+    }
+  })
 }
 
 export interface SaleItemInput {
@@ -196,45 +215,49 @@ export interface SaleInput {
   copy_service_type?: 'colored' | 'normal' | null
   copy_service_pages?: number | null
   copy_service_price?: number | null
-  bank_receipt_url?: string | null
+  bank_receipt_path?: string | null      // ✅ المسار فقط
   notes?: string | null
   items: SaleItemInput[]
 }
 
+// ✅ إصلاح: استخدم RPC transactional لإدراج sale + items معاً
 export async function insertSale(sale: SaleInput): Promise<DbSale> {
   const supabase = getSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
 
-  // إدراج الـ sale
-  const { data: saleRow, error: saleError } = await supabase
-    .from('lc_sales')
-    .insert({
-      sale_date: sale.sale_date || new Date().toISOString().split('T')[0],
-      total_amount: sale.total_amount,
-      copy_service_type: sale.copy_service_type || null,
-      copy_service_pages: sale.copy_service_pages || null,
-      copy_service_price: sale.copy_service_price || null,
-      bank_receipt_url: sale.bank_receipt_url || null,
-      notes: sale.notes || null,
-      created_by: user?.id || null
-    })
-    .select()
-    .single()
-  if (saleError) throw saleError
-
-  // إدراج العناصر
-  if (sale.items.length > 0) {
-    const itemsToInsert = sale.items.map(item => ({
-      ...item,
-      sale_id: saleRow.id
+  // استدعاء RPC الذي ينفذ العملية في transaction واحدة
+  // ✅ p_items يجب أن يكون JSONB array (وليس string)
+  const { data, error } = await supabase.rpc('insert_sale_with_items', {
+    p_sale_date: sale.sale_date || new Date().toISOString().split('T')[0],
+    p_total_amount: sale.total_amount,
+    p_copy_service_type: sale.copy_service_type || null,
+    p_copy_service_pages: sale.copy_service_pages || null,
+    p_copy_service_price: sale.copy_service_price || null,
+    p_bank_receipt_path: sale.bank_receipt_path || null,
+    p_notes: sale.notes || null,
+    p_items: sale.items.map(i => ({
+      product_id: i.product_id ? String(i.product_id) : '',
+      product_name: i.product_name,
+      quantity: String(i.quantity),
+      unit_price: String(i.unit_price),
+      total_price: String(i.total_price)
     }))
-    const { error: itemsError } = await supabase
-      .from('lc_sale_items')
-      .insert(itemsToInsert)
-    if (itemsError) throw itemsError
-  }
+  })
 
-  return saleRow
+  if (error) throw error
+  // الـ RPC يعيد sale بدون items (نحتاج إضافتها يدوياً للـ optimistic update)
+  return {
+    ...data,
+    items: sale.items.map((i, idx) => ({
+      id: -idx - 1,
+      sale_id: data.id,
+      product_id: i.product_id,
+      product_name: i.product_name,
+      quantity: i.quantity,
+      unit_price: i.unit_price,
+      total_price: i.total_price,
+      created_at: data.created_at
+    }))
+  } as DbSale
 }
 
 export async function deleteSale(id: number): Promise<void> {

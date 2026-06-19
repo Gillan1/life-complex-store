@@ -3,6 +3,9 @@
 import { create } from 'zustand'
 import { getSupabase } from '@/lib/supabase'
 
+// ✅ متغير module-level لتخزين unsubscribe function (للتنظيف)
+let _authUnsubscribe: (() => void) | null = null
+
 interface AuthState {
   username: string | null
   isAdmin: boolean
@@ -41,8 +44,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         set({ username: null, isAdmin: false, isAuthenticated: false, isLoading: false })
       }
 
-      // الاستماع لتغييرات الجلسة
-      supabase.auth.onAuthStateChange((_event, sess) => {
+      // ✅ حفظ unsubscribe function للتنظيف لاحقاً
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
         if (sess?.user) {
           set({
             username: sess.user.email || 'admin',
@@ -54,6 +57,9 @@ export const useAuthStore = create<AuthState>((set) => ({
           set({ username: null, isAdmin: false, isAuthenticated: false, isLoading: false })
         }
       })
+
+      // تخزين unsubscribe في متغير module-level للتنظيف
+      _authUnsubscribe = subscription.unsubscribe
     } catch (e) {
       console.error('Auth init error:', e)
       set({ isLoading: false })
