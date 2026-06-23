@@ -6,12 +6,13 @@ import { useSalesStore } from '@/store/sales-store'
 import { useAuthStore } from '@/store/auth-store'
 import { useLanguage } from '@/hooks/use-language'
 import { useTheme } from 'next-themes'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,16 +45,25 @@ import {
   Pencil,
   Database,
   AlertTriangle,
+  CheckSquare,
+  Square,
+  Loader2,
 } from 'lucide-react'
 
 export function SettingsView() {
-  const { products, deleteProduct, updateProduct, fetchProducts } = useProductStore()
+  const { products, deleteProduct, deleteMultipleProducts, deleteAllProducts, updateProduct, fetchProducts } = useProductStore()
   const { sales, fetchSales } = useSalesStore()
   const { isAdmin } = useAuthStore()
   const { t, language, setLanguage } = useLanguage()
   const { theme, setTheme } = useTheme()
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null)
   const [editTarget, setEditTarget] = useState<Product | null>(null)
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false)
+
+  // ✅ التحديد المتعدد
+  const [multiSelectMode, setMultiSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkDeleting, setBulkDeleting] = useState(false)
 
   // Edit form state
   const [editNameAr, setEditNameAr] = useState('')
@@ -71,6 +81,13 @@ export function SettingsView() {
     }
   }, [products, editCategory])
 
+  // ✅ إعادة تعيين التحديد عند الخروج من وضع التحديد المتعدد
+  useEffect(() => {
+    if (!multiSelectMode) {
+      setSelectedIds(new Set())
+    }
+  }, [multiSelectMode])
+
   if (!isAdmin) return null
 
   const handleDelete = async () => {
@@ -82,6 +99,67 @@ export function SettingsView() {
         toast.error(language === 'ar' ? 'فشل الحذف' : 'Failed to delete')
       }
       setDeleteTarget(null)
+    }
+  }
+
+  // ✅ حذف متعدد
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return
+    setBulkDeleting(true)
+    const ids = Array.from(selectedIds)
+    const result = await deleteMultipleProducts(ids)
+    setBulkDeleting(false)
+    if (result.failed === 0) {
+      toast.success(language === 'ar'
+        ? `تم حذف ${result.success} منتج بنجاح`
+        : `Deleted ${result.success} products successfully`)
+    } else {
+      toast.warning(language === 'ar'
+        ? `تم حذف ${result.success}، فشل ${result.failed}`
+        : `Deleted ${result.success}, failed ${result.failed}`)
+    }
+    setSelectedIds(new Set())
+    setMultiSelectMode(false)
+  }
+
+  // ✅ حذف الكل
+  const handleDeleteAll = async () => {
+    setBulkDeleting(true)
+    const success = await deleteAllProducts()
+    setBulkDeleting(false)
+    setDeleteAllOpen(false)
+    if (success) {
+      toast.success(language === 'ar'
+        ? 'تم حذف جميع المنتجات بنجاح'
+        : 'All products deleted successfully')
+      setSelectedIds(new Set())
+      setMultiSelectMode(false)
+    } else {
+      toast.error(language === 'ar'
+        ? 'فشل حذف جميع المنتجات'
+        : 'Failed to delete all products')
+    }
+  }
+
+  // ✅ تبديل تحديد منتج
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  // ✅ تحديد الكل / إلغاء تحديد الكل
+  const toggleSelectAll = () => {
+    if (selectedIds.size === products.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(products.map((p) => p.id)))
     }
   }
 
@@ -166,6 +244,8 @@ export function SettingsView() {
     toast.success(language === 'ar' ? 'تم التحديث من السحابة' : 'Refreshed from cloud')
   }
 
+  const allSelected = selectedIds.size === products.length && products.length > 0
+
   return (
     <div className="space-y-6 p-4">
       {/* Stock Alerts */}
@@ -197,67 +277,189 @@ export function SettingsView() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05 }}
       >
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
           <Package className="h-5 w-5 text-emerald-600" />
           <h2 className="text-lg font-bold">{t('productManagement')}</h2>
+          <span className="text-sm text-muted-foreground ms-2">
+            ({products.length} {language === 'ar' ? 'منتج' : 'products'})
+          </span>
         </div>
 
         <AddProductForm />
 
+        {/* ✅ شريط أدوات التحديد المتعدد */}
+        {products.length > 0 && (
+          <div className="mt-6 p-3 rounded-xl bg-muted/30 border border-border flex flex-wrap items-center gap-2">
+            <Button
+              variant={multiSelectMode ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setMultiSelectMode(!multiSelectMode)}
+              className={multiSelectMode ? 'bg-blue-600 hover:bg-blue-700' : ''}
+            >
+              {multiSelectMode ? (
+                <CheckSquare className="h-4 w-4 me-1" />
+              ) : (
+                <Square className="h-4 w-4 me-1" />
+              )}
+              {language === 'ar' ? 'تحديد متعدد' : 'Multi-select'}
+            </Button>
+
+            {multiSelectMode && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleSelectAll}
+                  disabled={products.length === 0}
+                >
+                  {allSelected ? (
+                    <>
+                      <Square className="h-4 w-4 me-1" />
+                      {language === 'ar' ? 'إلغاء تحديد الكل' : 'Deselect All'}
+                    </>
+                  ) : (
+                    <>
+                      <CheckSquare className="h-4 w-4 me-1" />
+                      {language === 'ar' ? 'تحديد الكل' : 'Select All'}
+                    </>
+                  )}
+                </Button>
+
+                <span className="text-sm text-muted-foreground ms-2">
+                  {language === 'ar'
+                    ? `${selectedIds.size} محدد`
+                    : `${selectedIds.size} selected`}
+                </span>
+
+                <div className="flex-1" />
+
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  disabled={selectedIds.size === 0 || bulkDeleting}
+                >
+                  {bulkDeleting ? (
+                    <Loader2 className="h-4 w-4 me-1 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 me-1" />
+                  )}
+                  {language === 'ar'
+                    ? `حذف المحدد (${selectedIds.size})`
+                    : `Delete Selected (${selectedIds.size})`}
+                </Button>
+              </>
+            )}
+
+            {!multiSelectMode && products.length > 0 && (
+              <>
+                <div className="flex-1" />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDeleteAllOpen(true)}
+                  className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                >
+                  <Trash2 className="h-4 w-4 me-1" />
+                  {language === 'ar' ? 'حذف جميع المنتجات' : 'Delete All Products'}
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+
         <div className="mt-6 space-y-3">
           <h3 className="text-sm font-medium text-muted-foreground">{t('currentProducts')}</h3>
           {products.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">{t('noProducts')}</p>
+            <div className="text-center py-12 rounded-xl border border-dashed border-border bg-muted/20">
+              <Package className="h-12 w-12 mx-auto mb-3 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">{t('noProducts')}</p>
+              <p className="text-xs text-muted-foreground/70 mt-2">
+                {language === 'ar'
+                  ? 'استخدم نموذج "إضافة منتج" بالأعلى لإضافة منتجاتك'
+                  : 'Use the "Add Product" form above to add your products'}
+              </p>
+            </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {products.map((product, index) => (
-                <motion.div
-                  key={product.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.03 }}
-                >
-                  <Card className="border-0 shadow-md overflow-hidden">
-                    <CardContent className="p-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted/30 flex-shrink-0">
-                          <img
-                            src={asset(product.image)}
-                            alt={productName(product)}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">
-                            {productName(product)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {getCategoryIcon(product)} {getCategoryName(product)} • {product.price.toLocaleString()} {t('currency')}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
-                            onClick={() => handleEdit(product)}
+              {products.map((product, index) => {
+                const isSelected = selectedIds.has(product.id)
+                return (
+                  <motion.div
+                    key={product.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(index * 0.03, 0.5) }}
+                  >
+                    <Card
+                      className={`border-0 shadow-md overflow-hidden transition-all ${
+                        multiSelectMode && isSelected
+                          ? 'ring-2 ring-blue-500 bg-blue-50/30 dark:bg-blue-950/20'
+                          : ''
+                      }`}
+                    >
+                      <CardContent className="p-3">
+                        <div className="flex items-center gap-3">
+                          {/* ✅ checkbox في وضع التحديد المتعدد */}
+                          {multiSelectMode && (
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleSelect(product.id)}
+                              className="flex-shrink-0"
+                            />
+                          )}
+                          <div
+                            className={`w-12 h-12 rounded-lg overflow-hidden bg-muted/30 flex-shrink-0 ${
+                              multiSelectMode ? 'cursor-pointer' : ''
+                            }`}
+                            onClick={() => multiSelectMode && toggleSelect(product.id)}
                           >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={() => setDeleteTarget(product)}
+                            <img
+                              src={asset(product.image)}
+                              alt={productName(product)}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <div
+                            className={`flex-1 min-w-0 ${
+                              multiSelectMode ? 'cursor-pointer' : ''
+                            }`}
+                            onClick={() => multiSelectMode && toggleSelect(product.id)}
                           >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                            <p className="font-medium text-sm truncate">
+                              {productName(product)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {getCategoryIcon(product)} {getCategoryName(product)} • {product.price.toLocaleString()} {t('currency')}
+                            </p>
+                          </div>
+                          {/* ✅ إخفاء أزرار التعديل/الحذف في وضع التحديد المتعدد */}
+                          {!multiSelectMode && (
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
+                                onClick={() => handleEdit(product)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                onClick={() => setDeleteTarget(product)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                )
+              })}
             </div>
           )}
         </div>
@@ -377,7 +579,7 @@ export function SettingsView() {
         </Card>
       </motion.div>
 
-      {/* Delete confirmation dialog */}
+      {/* Delete confirmation dialog - single product */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent dir={language === 'ar' ? 'rtl' : 'ltr'}>
           <AlertDialogHeader>
@@ -393,6 +595,40 @@ export function SettingsView() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {t('confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ✅ Delete All confirmation */}
+      <AlertDialog open={deleteAllOpen} onOpenChange={setDeleteAllOpen}>
+        <AlertDialogContent dir={language === 'ar' ? 'rtl' : 'ltr'}>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              {language === 'ar' ? 'حذف جميع المنتجات' : 'Delete All Products'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === 'ar'
+                ? `سيتم حذف جميع المنتجات (${products.length} منتج) نهائياً من قاعدة البيانات. لا يمكن التراجع عن هذا الإجراء.`
+                : `This will permanently delete all products (${products.length} items) from the database. This action cannot be undone.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDeleting}>{t('cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteAll}
+              disabled={bulkDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {bulkDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 me-2 animate-spin" />
+                  {language === 'ar' ? 'جاري الحذف...' : 'Deleting...'}
+                </>
+              ) : (
+                language === 'ar' ? 'نعم، احذف الكل' : 'Yes, Delete All'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

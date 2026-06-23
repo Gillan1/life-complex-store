@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useAuthStore } from '@/store/auth-store'
 import { useProductStore, type Product } from '@/store/product-store'
 import { useSalesStore } from '@/store/sales-store'
-import { useLanguage } from '@/hooks/use-language'
 import { Header } from './header'
 import { Sidebar, type ViewType } from './sidebar'
 import { ProductGrid } from './product-grid'
@@ -12,9 +11,9 @@ import { SalesView } from './sales-view'
 import { SettingsView } from './settings-view'
 import { ServicesView } from './services-view'
 import { RecordSaleDialog } from './record-sale-dialog'
-import { GuestMessage } from './guest-message'
 import { CoffeeModal, CoffeeButton } from './coffee-modal'
 import { PromotionView } from './promotion-view'
+import { AdminLoginDialog } from './admin-login-dialog'
 
 export function AppShell() {
   const { isAdmin } = useAuthStore()
@@ -26,7 +25,8 @@ export function AppShell() {
   const [coffeeModalOpen, setCoffeeModalOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
 
-  // تحميل المنتجات والمبيعات من Supabase عند mount
+  // تحميل المنتجات من Supabase عند mount (للجميع - ضيوف ومسؤولين)
+  // المبيعات فقط للمسؤول
   useEffect(() => {
     fetchProducts()
     if (isAdmin) fetchSales()
@@ -55,23 +55,23 @@ export function AppShell() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-      <div className="flex flex-1">
+      <div className="flex flex-1 min-h-0">
         <Sidebar
           activeView={activeView}
           onViewChange={setActiveView}
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
         />
-        <main className="flex-1 overflow-auto">
-          {!isAdmin && (activeView === 'home' || activeView === 'services') && <GuestMessage />}
+        {/* ✅ المحتوى الرئيسي - يأخذ المساحة المتبقية */}
+        <main className="flex-1 overflow-x-hidden overflow-y-auto min-w-0">
           {renderContent()}
         </main>
       </div>
 
       {/* Floating Coffee Button */}
-      <div className="fixed bottom-6 end-6 z-30">
+      <div className="fixed bottom-6 end-4 sm:end-6 z-30">
         <CoffeeButton onClick={() => setCoffeeModalOpen(true)} />
       </div>
 

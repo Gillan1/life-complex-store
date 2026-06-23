@@ -3,7 +3,7 @@
 import { useAuthStore } from '@/store/auth-store'
 import { useLanguage } from '@/hooks/use-language'
 import { cn } from '@/lib/utils'
-import { Home, BarChart3, Settings, Shield, Wrench, Megaphone } from 'lucide-react'
+import { Home, BarChart3, Settings, Shield, Wrench, Megaphone, LogIn } from 'lucide-react'
 
 export type ViewType = 'home' | 'sales' | 'settings' | 'services' | 'promotion'
 
@@ -15,7 +15,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ activeView, onViewChange, isOpen, onClose }: SidebarProps) {
-  const { isAdmin } = useAuthStore()
+  const { isAdmin, setShowLoginDialog } = useAuthStore()
   const { t, dir, language } = useLanguage()
   const isRtl = dir === 'rtl'
 
@@ -28,6 +28,11 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose }: SidebarPr
   ]
 
   const filteredItems = navItems.filter((item) => !item.adminOnly || isAdmin)
+
+  const handleAdminLoginClick = () => {
+    setShowLoginDialog(true)
+    onClose()
+  }
 
   return (
     <>
@@ -49,7 +54,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose }: SidebarPr
             : isRtl
               ? 'translate-x-full'
               : '-translate-x-full',
-          'md:sticky md:translate-x-0'
+          'md:sticky md:translate-x-0 md:top-14 md:h-[calc(100vh-3.5rem)]'
         )}
       >
         <div className="flex h-full flex-col gap-2 p-4">
@@ -71,7 +76,7 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose }: SidebarPr
                   onClose()
                 }}
                 className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 w-full text-start',
                   activeView === item.id
                     ? item.id === 'services'
                       ? 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300 shadow-sm'
@@ -87,11 +92,26 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose }: SidebarPr
             ))}
           </nav>
 
-          {/* Guest badge */}
-          {!isAdmin && (
+          {/* Guest section: Admin login button + location info */}
+          {!isAdmin ? (
+            <div className="mt-auto space-y-3">
+              <button
+                onClick={handleAdminLoginClick}
+                className="w-full flex items-center justify-center gap-2 rounded-lg px-3 py-3 text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm"
+              >
+                <LogIn className="h-4 w-4" />
+                {language === 'ar' ? 'دخول المسؤول' : 'Admin Login'}
+              </button>
+              <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
+                <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300 text-center">
+                  {language === 'ar' ? '📍 زورنا في مجمع الحياة - دنقلا' : '📍 Visit us at Life Complex - Dongola'}
+                </p>
+              </div>
+            </div>
+          ) : (
             <div className="mt-auto p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
               <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300 text-center">
-                {language === 'ar' ? '📍 زورنا في مجمع الحياة - دنقلا' : '📍 Visit us at Life Complex - Dongola'}
+                {language === 'ar' ? '📍 مجمع الحياة - دنقلا' : '📍 Life Complex - Dongola'}
               </p>
             </div>
           )}

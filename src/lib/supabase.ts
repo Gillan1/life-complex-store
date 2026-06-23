@@ -117,6 +117,14 @@ export async function deleteProduct(id: number): Promise<void> {
   if (error) throw error
 }
 
+// ✅ حذف جميع المنتجات (للمسؤول فقط - يتطلب RLS policy أن يسمح بـ DELETE للمسؤول)
+export async function deleteAllProducts(): Promise<void> {
+  const supabase = getSupabase()
+  // حذف جميع الصفوف - يتطلب صلاحية DELETE
+  const { error } = await supabase.from('lc_products').delete().neq('id', -1)
+  if (error) throw error
+}
+
 // ============ دوال رفع الصور ============
 export async function uploadProductImage(file: File): Promise<string> {
   const supabase = getSupabase()

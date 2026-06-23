@@ -3,31 +3,34 @@
 import { create } from 'zustand'
 import { getSupabase } from '@/lib/supabase'
 
-// ✅ متغير module-level لتخزين unsubscribe function (للتنظيف)
-let _authUnsubscribe: (() => void) | null = null
-
 interface AuthState {
   username: string | null
   isAdmin: boolean
-  isAuthenticated: boolean
+  isAuthenticated: boolean  // دائماً true - المستخدم ضيف افتراضياً
   isLoading: boolean
+  showLoginDialog: boolean  // عرض نافذة تسجيل الدخول
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
   logout: () => Promise<void>
   initAuth: () => Promise<void>
+  setShowLoginDialog: (show: boolean) => void
 }
 
 /**
- * متجر المصادقة - يستخدم Supabase Auth بدلاً من المصادقة الوهمية السابقة.
+ * متجر المصادقة - الوضع الافتراضي هو "ضيف".
  *
- * ⚠️ لم نعد نعتمد على username === 'غيلان بن عقبة' لتحديد المسؤول.
- * الآن: أي مستخدم يسجل دخول في Supabase Auth هو مسؤول (لأن RLS يتطلب authenticated).
- * لاحقاً يمكن إضافة جدول user_roles للتحكم الدقيق.
+ * - الدخول للموقع لا يتطلب تسجيل دخول - المستخدم ضيف افتراضياً
+ * - عند الحاجة لقسم المسؤول، تظهر نافذة تسجيل الدخول
+ * - تسجيل الدخول عبر Supabase Auth
+ * - أي مستخدم يسجل دخول في Supabase Auth يصبح مسؤول
  */
 export const useAuthStore = create<AuthState>((set) => ({
   username: null,
   isAdmin: false,
-  isAuthenticated: false,
+  isAuthenticated: true,  // ✅ ضيف افتراضياً - لا حاجة لتسجيل الدخول
   isLoading: true,
+  showLoginDialog: false,
+
+  setShowLoginDialog: (show) => set({ showLoginDialog: show }),
 
   initAuth: async () => {
     try {
@@ -41,28 +44,37 @@ export const useAuthStore = create<AuthState>((set) => ({
           isLoading: false
         })
       } else {
-        set({ username: null, isAdmin: false, isAuthenticated: false, isLoading: false })
+        // ✅ ضيف افتراضياً
+        set({
+          username: null,
+          isAdmin: false,
+          isAuthenticated: true,
+          isLoading: false
+        })
       }
 
-      // ✅ حفظ unsubscribe function للتنظيف لاحقاً
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
+      // الاستماع لتغييرات الجلسة
+      supabase.auth.onAuthStateChange((_event, sess) => {
         if (sess?.user) {
           set({
             username: sess.user.email || 'admin',
             isAdmin: true,
             isAuthenticated: true,
-            isLoading: false
+            isLoading: false,
+            showLoginDialog: false
           })
         } else {
-          set({ username: null, isAdmin: false, isAuthenticated: false, isLoading: false })
+          set({
+            username: null,
+            isAdmin: false,
+            isAuthenticated: true,
+            isLoading: false
+          })
         }
       })
-
-      // تخزين unsubscribe في متغير module-level للتنظيف
-      _authUnsubscribe = subscription.unsubscribe
     } catch (e) {
       console.error('Auth init error:', e)
-      set({ isLoading: false })
+      set({ isLoading: false, isAuthenticated: true, isAdmin: false })
     }
   },
 
@@ -77,7 +89,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         username: data.user?.email || 'admin',
         isAdmin: true,
         isAuthenticated: true,
-        isLoading: false
+        isLoading: false,
+        showLoginDialog: false
       })
       return { success: true }
     } catch (e) {
@@ -93,7 +106,13 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch (e) {
       console.error('Logout error:', e)
     } finally {
-      set({ username: null, isAdmin: false, isAuthenticated: false })
+      // ✅ العودة لوضع الضيف بدلاً من إخفاء المحتوى
+      set({
+        username: null,
+        isAdmin: false,
+        isAuthenticated: true,
+        showLoginDialog: false
+      })
     }
   }
 }))

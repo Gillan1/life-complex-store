@@ -6,6 +6,7 @@ import {
   insertProduct as sbInsertProduct,
   updateProduct as sbUpdateProduct,
   deleteProduct as sbDeleteProduct,
+  deleteAllProducts as sbDeleteAllProducts,
   uploadProductImage,
   type DbProduct
 } from '@/lib/supabase'
@@ -116,6 +117,8 @@ interface ProductState {
   fetchProducts: (force?: boolean) => Promise<void>
   addProduct: (product: Omit<Product, 'id'>) => Promise<Product | null>
   deleteProduct: (id: string) => Promise<boolean>
+  deleteMultipleProducts: (ids: string[]) => Promise<{ success: number; failed: number }>
+  deleteAllProducts: () => Promise<boolean>
   updateProduct: (id: string, updates: Partial<Product>) => Promise<boolean>
   uploadImage: (file: File) => Promise<string | null>
 }
@@ -169,6 +172,48 @@ export const useProductStore = create<ProductState>((set, get) => ({
       return true
     } catch (e) {
       console.error('deleteProduct error:', e)
+      return false
+    }
+  },
+
+  // ✅ حذف متعدد - يستخدم Promise.allSettled للحذف المتوازي
+  deleteMultipleProducts: async (ids) => {
+    let success = 0
+    let failed = 0
+
+    // حذف متوازي
+    const results = await Promise.allSettled(
+      ids.map((id) => sbDeleteProduct(Number(id)))
+    )
+
+    const successfulIds: string[] = []
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        success++
+        successfulIds.push(ids[index])
+      } else {
+        failed++
+      }
+    })
+
+    // إزالة المنتجات المحذوفة من الحالة
+    if (successfulIds.length > 0) {
+      set((state) => ({
+        products: state.products.filter((p) => !successfulIds.includes(p.id))
+      }))
+    }
+
+    return { success, failed }
+  },
+
+  // ✅ حذف جميع المنتجات
+  deleteAllProducts: async () => {
+    try {
+      await sbDeleteAllProducts()
+      set({ products: [] })
+      return true
+    } catch (e) {
+      console.error('deleteAllProducts error:', e)
       return false
     }
   },

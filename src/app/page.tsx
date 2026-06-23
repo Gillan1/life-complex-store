@@ -1,8 +1,8 @@
 'use client'
 
 import { useAuthStore } from '@/store/auth-store'
-import { LoginScreen } from '@/components/store/login-screen'
 import { AppShell } from '@/components/store/app-shell'
+import { AdminLoginDialog } from '@/components/store/admin-login-dialog'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 
 const emptySubscribe = () => () => {}
@@ -16,9 +16,8 @@ function useHasMounted() {
 }
 
 export default function Home() {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
-  const isLoading = useAuthStore((s) => s.isLoading)
   const initAuth = useAuthStore((s) => s.initAuth)
+  const showLoginDialog = useAuthStore((s) => s.showLoginDialog)
   const mounted = useHasMounted()
   const [hydrated, setHydrated] = useState(false)
 
@@ -30,7 +29,7 @@ export default function Home() {
     }
   }, [mounted, initAuth])
 
-  if (!mounted || !hydrated || isLoading) {
+  if (!mounted || !hydrated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-pulse flex flex-col items-center gap-4">
@@ -41,9 +40,10 @@ export default function Home() {
     )
   }
 
-  if (!isAuthenticated) {
-    return <LoginScreen />
-  }
-
-  return <AppShell />
+  return (
+    <>
+      <AppShell />
+      <AdminLoginDialog open={showLoginDialog} />
+    </>
+  )
 }
