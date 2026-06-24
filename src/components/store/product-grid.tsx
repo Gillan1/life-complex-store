@@ -65,9 +65,22 @@ export function ProductGrid({ onRecordSale }: ProductGridProps) {
 
   if (products.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-        <PackageOpen className="h-16 w-16 mb-4 opacity-50" />
-        <p className="text-lg">{t('noProducts')}</p>
+      <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+        <PackageOpen className="h-20 w-20 mb-4 opacity-40 text-muted-foreground" />
+        <h3 className="text-xl font-bold text-foreground mb-2">
+          {language === 'ar' ? 'مرحباً بك في مجمع الحياة' : 'Welcome to Life Complex'}
+        </h3>
+        <p className="text-sm text-muted-foreground max-w-md leading-relaxed mb-6">
+          {language === 'ar'
+            ? 'لم تتم إضافة منتجات بعد. تابعونا قريباً لإضافة المنتجات الجديدة. وتصفحوا خدماتنا المتنوعة من قسم الخدمات.'
+            : 'No products have been added yet. Stay tuned for new products. Meanwhile, browse our services from the Services section.'}
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
+        >
+          {language === 'ar' ? 'تحديث الصفحة' : 'Refresh Page'}
+        </button>
       </div>
     )
   }

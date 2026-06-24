@@ -55,17 +55,17 @@ export function AppShell() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-background overflow-x-hidden">
       <Header onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-1 min-h-0 relative">
         <Sidebar
           activeView={activeView}
           onViewChange={setActiveView}
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
         />
-        {/* ✅ المحتوى الرئيسي - يأخذ المساحة المتبقية */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto min-w-0">
+        {/* ✅ المحتوى الرئيسي - يأخذ المساحة المتبقية ويمنع التداخل الأفقي */}
+        <main className="flex-1 overflow-x-hidden overflow-y-auto min-w-0 bg-background">
           {renderContent()}
         </main>
       </div>
